@@ -1,0 +1,121 @@
+4. C Program
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <pthread.h>
+#include <semaphore.h>
+#include <unistd.h>
+
+#define N 5
+
+pthread_mutex_t fork[N];
+sem_t room;
+
+void *philosopher(void *arg)
+{
+    int id = *(int *)arg;
+
+    while (1)
+    {
+        printf("Philosopher %d is thinking\n", id + 1);
+        sleep(1);
+
+        sem_wait(&room);
+
+        pthread_mutex_lock(&fork[id]);
+        printf("Philosopher %d picked up left fork\n", id + 1);
+
+        pthread_mutex_lock(&fork[(id + 1) % N]);
+        printf("Philosopher %d picked up right fork\n", id + 1);
+
+        printf("Philosopher %d is eating\n", id + 1);
+        sleep(2);
+
+        pthread_mutex_unlock(&fork[(id + 1) % N]);
+        pthread_mutex_unlock(&fork[id]);
+
+        printf("Philosopher %d put down both forks\n", id + 1);
+
+        sem_post(&room);
+    }
+
+    return NULL;
+}
+
+int main()
+{
+    pthread_t t[N];
+    int id[N];
+
+    sem_init(&room, 0, 4);
+
+    for (int i = 0; i < N; i++)
+        pthread_mutex_init(&fork[i], NULL);
+
+    for (int i = 0; i < N; i++)
+    {
+        id[i] = i;
+        pthread_create(&t[i], NULL, philosopher, &id[i]);
+    }
+
+    for (int i = 0; i < N; i++)
+        pthread_join(t[i], NULL);
+
+    for (int i = 0; i < N; i++)
+        pthread_mutex_destroy(&fork[i]);
+
+    sem_destroy(&room);
+
+    return 0;
+}
+
+
+
+Note: This program runs continuously because philosophers keep thinking and eating. Press Ctrl + C to stop it. The four-philosopher semaphore prevents deadlock, but strict starvation freedom is not guaranteed.
+5. How to Run in Ubuntu Terminal
+Step 1: Open Terminal
+Press Ctrl + Alt + T.
+Step 2: Create a C file
+nano dining.c
+
+
+Step 3: Paste the program
+- Copy the above C program.
+- Paste it into the terminal.
+- Press Ctrl + O and Enter to save.
+- Press Ctrl + X to exit.
+Step 4: Compile the program
+gcc dining.c -o dining -pthread
+
+
+If there are no errors, compilation is successful.
+Step 5: Run the program
+./dining
+
+
+Step 6: Stop the program
+Ctrl + C
+
+
+6. Sample Output
+Expected output (order may vary)
+Philosopher 1 is thinking
+Philosopher 2 is thinking
+Philosopher 3 is thinking
+Philosopher 4 is thinking
+Philosopher 5 is thinking
+
+Philosopher 1 picked up left fork
+Philosopher 1 picked up right fork
+Philosopher 1 is eating
+
+Philosopher 3 picked up left fork
+Philosopher 3 picked up right fork
+Philosopher 3 is eating
+
+Philosopher 1 put down both forks
+Philosopher 2 picked up left fork
+Philosopher 2 picked up right fork
+Philosopher 2 is eating
+
+Philosopher 3 put down both forks

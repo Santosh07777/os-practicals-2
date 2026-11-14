@@ -1,0 +1,209 @@
+1. Program 1 – First Process (p1.c)
+This program:
+- Accepts sentences from the user.
+- Sends sentences through the first FIFO.
+- Receives the counting result through the second FIFO.
+- Displays the result on the screen.
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <fcntl.h>
+#include <sys/stat.h>
+#include <unistd.h>
+
+#define SIZE 1024
+
+int main()
+{
+    int fd1, fd2;
+    char text[SIZE];
+
+    // Open first FIFO for writing
+    fd1 = open("fifo1", O_WRONLY);
+
+    printf("Enter sentences (type END to finish):\n");
+
+    while (1)
+    {
+        fgets(text, SIZE, stdin);
+
+        write(fd1, text, strlen(text));
+
+        if (strncmp(text, "END", 3) == 0)
+            break;
+    }
+
+    close(fd1);
+
+    // Open second FIFO for reading
+    fd2 = open("fifo2", O_RDONLY);
+
+    printf("\nResult received from Process 2:\n");
+
+    int n;
+    while ((n = read(fd2, text, SIZE - 1)) > 0)
+    {
+        text[n] = '\0';
+        printf("%s", text);
+    }
+
+    close(fd2);
+
+    return 0;
+}
+
+
+
+Important: Add this header at the top with the other headers because the program uses strlen() and strncmp():
+#include <string.h>
+
+
+2. Program 2 – Second Process (p2.c)
+This program:
+- Reads sentences from the first FIFO.
+- Counts characters, words and lines.
+- Stores the result in result.txt.
+- Sends the file contents through the second FIFO.
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <fcntl.h>
+#include <sys/stat.h>
+#include <unistd.h>
+#include <ctype.h>
+
+#define SIZE 1024
+
+int main()
+{
+    int fd1, fd2;
+    char text[SIZE];
+    int characters = 0, words = 0, lines = 0;
+    int inword = 0, n;
+
+    // Create two FIFOs
+    mkfifo("fifo1", 0666);
+    mkfifo("fifo2", 0666);
+
+    // Open first FIFO for reading
+    fd1 = open("fifo1", O_RDONLY);
+
+    while ((n = read(fd1, text, SIZE)) > 0)
+    {
+        for (int i = 0; i < n; i++)
+        {
+            characters++;
+
+            if (text[i] == '\n')
+                lines++;
+
+            if (isspace((unsigned char)text[i]))
+                inword = 0;
+            else if (!inword)
+            {
+                words++;
+                inword = 1;
+            }
+        }
+    }
+
+    close(fd1);
+
+    // Write result into a file
+    FILE *fp = fopen("result.txt", "w");
+
+    fprintf(fp, "Number of Characters = %d\n", characters);
+    fprintf(fp, "Number of Words = %d\n", words);
+    fprintf(fp, "Number of Lines = %d\n", lines);
+
+    fclose(fp);
+
+    // Open second FIFO for writing
+    fd2 = open("fifo2", O_WRONLY);
+
+    // Read file and send contents
+    fp = fopen("result.txt", "r");
+
+    while ((n = fread(text, 1, SIZE, fp)) > 0)
+    {
+        write(fd2, text, n);
+    }
+
+    fclose(fp);
+    close(fd2);
+
+    printf("Process 2 completed successfully.\n");
+
+    unlink("fifo1");
+    unlink("fifo2");
+
+    return 0;
+}
+
+
+
+3. How to run the programs in Ubuntu
+Step-by-step practical
+Step 1: Create a folder
+Open Ubuntu terminal and type:
+mkdir IPC
+cd IPC
+
+
+Step 2: Create p1.c
+nano p1.c
+
+
+Paste Program 1 code.
+
+Save using:
+- Press Ctrl + O
+- Press Enter
+- Press Ctrl + X
+Step 3: Create p2.c
+nano p2.c
+
+
+Paste Program 2 code and save it.
+Step 4: Compile both programs
+gcc p1.c -o p1
+gcc p2.c -o p2
+
+
+If there are no errors, compilation is successful.
+Step 5: Open two Ubuntu terminals
+Terminal 1 – Run Process 2 first
+./p2
+
+
+It waits for input from Process 1.
+
+Terminal 2 – Run Process 1
+cd IPC
+./p1
+
+
+Enter your sentences here.
+
+Step 6: Enter input in Terminal 2
+Enter sentences (type END to finish):
+Hello World
+Welcome to Linux
+This is IPC practical
+END
+
+
+Step 7: Output
+Terminal 2 – Process 1 Output
+Result received from Process 2:
+
+Number of Characters = 51
+Number of Words = 9
+Number of Lines = 3
+
+
+Example output for the three sentences above.
+
+You can also check the result file:
+cat result.txt
